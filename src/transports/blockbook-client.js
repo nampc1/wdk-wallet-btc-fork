@@ -77,12 +77,54 @@ export default class BlockbookClient {
    * @returns {Promise<BtcBalance>} The balance information.
    */
   async getBalance (address) {
-    const data = await this._get(`/v2/address/${address}?details=basic`)
+    const data = await this._get(`/v2/address/${address}?details=txids`)
+
+    const confirmed = Number(data.balance)
+    let unconfirmedIncoming = Number(data.unconfirmedReceiving ?? 0)
+    let unconfirmedOutgoing = Number(data.unconfirmedSending ?? 0)
+
+    const isLegacyServer = data.unconfirmedReceiving === undefined && data.unconfirmedSending === undefined
+    if (isLegacyServer && data.unconfirmedTxs > 0) {
+      ({ unconfirmedIncoming, unconfirmedOutgoing } = await this._getUnconfirmedBalanceDelta(address, data.unconfirmedTxs))
+    }
 
     return {
-      confirmed: Number(data.balance),
-      unconfirmed: Number(data.unconfirmedBalance)
+      confirmed,
+      unconfirmed: unconfirmedIncoming - unconfirmedOutgoing,
+      unconfirmedIncoming,
+      unconfirmedOutgoing
     }
+  }
+
+  /**
+   * Computes unconfirmed incoming/outgoing totals from mempool transactions.
+   * Used as a fallback for Blockbook servers that don't report
+   * unconfirmedReceiving/unconfirmedSending on the address endpoint.
+   *
+   * @private
+   * @param {string} address - The bitcoin address.
+   * @param {number} unconfirmedTxs - The number of unconfirmed transactions to fetch.
+   * @returns {Promise<{ unconfirmedIncoming: number, unconfirmedOutgoing: number }>}
+   */
+  async _getUnconfirmedBalanceDelta (address, unconfirmedTxs) {
+    const data = await this._get(`/v2/address/${address}?details=txslight&pageSize=${unconfirmedTxs}`)
+
+    let unconfirmedIncoming = 0
+    let unconfirmedOutgoing = 0
+
+    for (const tx of data.transactions || []) {
+      if (tx.confirmations !== 0) continue
+
+      for (const vin of tx.vin || []) {
+        if (vin.isOwn) unconfirmedOutgoing += Number(vin.value || 0)
+      }
+
+      for (const vout of tx.vout || []) {
+        if (vout.isOwn) unconfirmedIncoming += Number(vout.value || 0)
+      }
+    }
+
+    return { unconfirmedIncoming, unconfirmedOutgoing }
   }
 
   /**

@@ -25,7 +25,9 @@ import { toHex } from 'uint8array-tools'
 /**
  * @typedef {Object} BtcBalance
  * @property {number} confirmed - Confirmed balance in satoshis.
- * @property {number} [unconfirmed] - Unconfirmed balance in satoshis.
+ * @property {number} [unconfirmed] - Unconfirmed balance in satoshis (incoming minus outgoing).
+ * @property {number} [unconfirmedIncoming] - Unconfirmed incoming balance in satoshis.
+ * @property {number} [unconfirmedOutgoing] - Unconfirmed outgoing balance in satoshis.
  */
 
 /**

@@ -178,7 +178,9 @@ export default class WalletAccountReadOnlyBtc extends WalletAccountReadOnly {
   }
 
   /**
-   * Returns the account's bitcoin balance.
+   * Returns the account's bitcoin balance: confirmed funds minus any
+   * unconfirmed outgoing amount. Unconfirmed incoming funds are excluded
+   * until they confirm.
    *
    * @returns {Promise<bigint>} The bitcoin balance (in satoshis).
    */
@@ -187,9 +189,9 @@ export default class WalletAccountReadOnlyBtc extends WalletAccountReadOnly {
 
     const address = await this.getAddress()
 
-    const { confirmed, unconfirmed } = await this._client.getBalance(address)
+    const { confirmed, unconfirmedOutgoing } = await this._client.getBalance(address)
 
-    return BigInt(confirmed + (unconfirmed || 0))
+    return BigInt(confirmed - (unconfirmedOutgoing || 0))
   }
 
   /**
